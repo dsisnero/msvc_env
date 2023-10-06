@@ -1,0 +1,13 @@
+name: msvc_env
+version: 0.7.0
+
+authors:
+  - dsisnero <dsisnero@gmail.com>
+
+targets:
+  msvc_env:
+    main: src/msvc_env.cr
+
+crystal: 1.9.2
+
+license: MIT
