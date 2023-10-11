@@ -4,6 +4,7 @@ require "hash"
 module MsvcEnv
   struct Constants
     EDITIONS = ["Enterprise", "Professional", "Community", "Preview", "BuildTools"]
+
     property program_files_x86 : Path
     property program_files : Path
     getter vs_year_version : Hash(String, String)
@@ -43,7 +44,7 @@ module MsvcEnv
       ENV["PATH"] = path
     end
 
-    def vsversion_to_versionnumber(vsversion : String?) : String?
+    def vs_year_to_versionnumber(vsversion : String?) : String?
       vs_year_version[vsversion]?
     end
 
@@ -84,7 +85,7 @@ module MsvcEnv
     end
 
     def find_vcvarsall(vsversion : String? = nil) : Path
-      vsversion_number = vsversion_to_versionnumber(vsversion)
+      vsversion_number = vs_year_to_versionnumber(vsversion)
       version_pattern =
         if vsversion_number
           vsversion_number = vsversion_number.not_nil!

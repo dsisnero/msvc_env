@@ -1,8 +1,10 @@
 require "./options"
 require "./constants"
+require "../with_env"
 
 module MsvcEnv
   class Controller
+    include WithEnv
     YEARS               = ["2022", "2019", "2017", "2015"]
     PATH_LIKE_VARIABLES = ["PATH", "INCLUDE", "LIB", "LIBPATH"]
 
@@ -18,29 +20,41 @@ module MsvcEnv
     end
 
     # Define a method to set up the MSVC Developer Command Prompt.
-    def setup_msvcdev_cmd(opt : Options)
+    def setup_msvcdev_cmd(opt : Options?)
       # Constants related to the MSVC setup.
       constants = Constants.new
 
-      # Map architecture aliases.
-      arch_aliases = {
-        "win32"  => "x86",
-        "win64"  => "x64",
-        "x86_64" => "x64",
-        "x86-64" => "x64",
-      }
-      # Convert architecture to lowercase and map to actual value.
-      arch = arch_aliases.fetch(opt.arch.downcase, opt.arch.downcase) if opt.arch
+      if opt
+        # Map architecture aliases.
+        arch_aliases = {
+          "win32"  => "x86",
+          "win64"  => "x64",
+          "x86_64" => "x64",
+          "x86-64" => "x64",
+        }
+        # Convert architecture to lowercase and map to actual value.
+        arch = arch_aliases.fetch(opt.arch.downcase, opt.arch.downcase) if opt.arch
 
-      # Prepare the command to execute VC++ configuration batch file.
-      vcvars_args = arch ? [arch] : [] of String
-      vcvars_args << "uwp" if opt.uwp
-      vcvars_args << opt.sdk.not_nil! if opt.sdk
-      vcvars_args << "-vcvars_ver=#{opt.toolset}" if opt.toolset
-      vcvars_args << "-vcvars_spectre_libs=spectre" if opt.spectre
-      vsbatch = constants.find_vcvarsall(opt.version)
+        # Prepare the command to execute VC++ configuration batch file.
+        vcvars_args = arch ? [arch] : [] of String
+        vcvars_args << "uwp" if opt.uwp
+        vcvars_args << opt.sdk.not_nil! if opt.sdk
+        vcvars_args << "-vcvars_ver=#{opt.toolset}" if opt.toolset
+        vcvars_args << "-vcvars_spectre_libs=spectre" if opt.spectre
+        vsbatch = constants.find_vcvarsall(opt.version)
 
-      %Q{"#{constants.find_vcvarsall(opt.version)}" #{vcvars_args.join(" ")}}
+        %Q{"#{constants.find_vcvarsall(opt.version)}" #{vcvars_args.join(" ")}}
+      else
+        %Q("#{constants.find_vcvarsall}" x64 )
+      end
+    end
+
+    def msvc_env(&)
+      vcsvars_cmd = setup_msvcdev_cmd(nil)
+      _, new_env = run_vc_batch_file(vcsvars_cmd)
+      with_env(new_env) do
+        yield
+      end
     end
 
     def run(opt : Options)
