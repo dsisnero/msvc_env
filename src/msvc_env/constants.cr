@@ -73,8 +73,13 @@ module MsvcEnv
       cmd_output_string = io_out.to_s
       cmd_error_string = io_error.to_s
 
-      paths = cmd_output_string.lines
-      path = paths.first || raise("Couldn't determine the latest VS installation path")
+      paths = cmd_output_string.lines.reject(&.empty?)
+      
+      if paths.empty?
+        raise "No Visual Studio installations found by vswhere"
+      end
+      
+      path = paths.first
 
       if path.includes?("Visual Studio Locator") || path.includes?("Copyright (C)")
         raise "Query to vswhere failed:\n\t#{path}"
