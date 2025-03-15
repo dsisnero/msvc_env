@@ -25,7 +25,7 @@ module MsvcEnv
       @program_files_x86 = pathbuf_from_key("ProgramFiles(x86)")
       @program_files = pathbuf_from_key("ProgramFiles")
       @vswhere_path = @program_files_x86.join("Microsoft Visual Studio/Installer").normalize
-      pp! @vswhere_path
+      Log.debug { "vswhere_path: #{@vswhere_path}" }
       if exe = find_vswhere_exe
         Log.info { "vswhere found: #{@vswhere_path}" }
         @vswhere_exe = exe
@@ -73,15 +73,26 @@ module MsvcEnv
     end
 
     def find_with_vswhere(pattern : String, version_pattern : String) : Path
-      raise "vshere not found" unless vswhere_exe
+      raise "vswhere not found" unless vswhere_exe
       exe = vswhere_exe.not_nil!.to_s
-      vswhere = ["/C", exe,
-                 "-products", "*",
-                 version_pattern,
-      ]
+      
+      # Build the command arguments
+      vswhere = ["/C", exe, "-products", "*"]
+      
+      # Add version pattern as separate arguments if it contains spaces
+      if version_pattern.includes?(' ')
+        version_pattern.split(' ', remove_empty: true).each do |part|
+          vswhere << part
+        end
+      else
+        vswhere << version_pattern
+      end
+      
       vswhere << "--prerelease" if version_pattern.includes?(',')
       vswhere.concat %w(-property installationPath -sort -utf8)
 
+      Log.debug { "Running vswhere command: cmd #{vswhere.join(" ")}" }
+      
       io_out = IO::Memory.new
       io_error = IO::Memory.new
 

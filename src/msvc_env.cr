@@ -8,10 +8,15 @@ module MsvcEnv
   # Initialize the constants
   def self.init
     begin
+      # Configure logging
+      Log.setup_from_env
+      
+      # Initialize constants
       constants = Constants.new
       puts "Successfully initialized MsvcEnv"
-    rescue ex
+    rescue ex : Exception
       STDERR.puts "Error initializing Constants: #{ex.message}"
+      STDERR.puts ex.backtrace.join("\n") if ENV["DEBUG"]? == "1"
       exit(1)
     end
   end
