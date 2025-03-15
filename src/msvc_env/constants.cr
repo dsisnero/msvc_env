@@ -27,9 +27,19 @@ module MsvcEnv
 
     def find_vswhere_exe
       exe = @vswhere_path / "vswhere.exe"
-      return exe if File.exists? exe
+      if File.exists? exe
+        puts "Found vswhere.exe at: #{exe}"
+        return exe
+      end
+      
       exe = Process.find_executable("vswhere")
-      Path.new exe if exe
+      if exe
+        puts "Found vswhere in PATH at: #{exe}"
+        return Path.new(exe)
+      end
+      
+      puts "vswhere.exe not found"
+      nil
     end
 
     def update_env_path
@@ -73,6 +83,10 @@ module MsvcEnv
       cmd_output_string = io_out.to_s
       cmd_error_string = io_error.to_s
 
+      # Print debug information
+      puts "vswhere command output: #{cmd_output_string.inspect}"
+      puts "vswhere command error: #{cmd_error_string.inspect}" unless cmd_error_string.empty?
+
       paths = cmd_output_string.lines.reject(&.empty?)
       
       if paths.empty?
@@ -90,7 +104,11 @@ module MsvcEnv
     end
 
     def find_vcvarsall(vsversion : String? = nil) : Path
+      puts "Looking for vcvarsall.bat with vsversion: #{vsversion.inspect}"
+      
       vsversion_number = vs_year_to_versionnumber(vsversion)
+      puts "Converted to version number: #{vsversion_number.inspect}"
+      
       version_pattern =
         if vsversion_number
           vsversion_number = vsversion_number.not_nil!
@@ -98,7 +116,7 @@ module MsvcEnv
             %(-version "#{vsversion_number}")
           else
             if vsversion
-              upper_bound_stem = vsversion.split(".")[0]
+              upper_bound_stem = vsversion.to_s.split(".")[0]
               %(-version "#{vsversion_number},#{upper_bound_stem}.9")
             else
               "-latest"
@@ -107,11 +125,18 @@ module MsvcEnv
         else
           "-latest"
         end
+      
+      puts "Using version pattern: #{version_pattern}"
 
       begin
-        return find_with_vswhere("VC/Auxiliary/Build/vcvarsall.bat", version_pattern)
+        if vswhere_exe
+          puts "Trying to find with vswhere..."
+          return find_with_vswhere("VC/Auxiliary/Build/vcvarsall.bat", version_pattern)
+        else
+          puts "vswhere.exe not available, skipping vswhere search"
+        end
       rescue ex : Exception
-        STDERR.puts "Not found with vswhere: #{ex}"
+        STDERR.puts "Not found with vswhere: #{ex.message}"
       end
 
       vs_year_version.each do |ver, _|
