@@ -1,8 +1,10 @@
 require "set"
 require "hash"
-
+require "log"
 module MsvcEnv
   struct Constants
+
+    Log = ::Log.for(self)
     EDITIONS = ["Enterprise", "Professional", "Community", "Preview", "BuildTools"]
 
     property program_files_x86 : Path
@@ -22,7 +24,13 @@ module MsvcEnv
       @program_files_x86 = pathbuf_from_key("ProgramFiles(x86)")
       @program_files = pathbuf_from_key("ProgramFiles")
       @vswhere_path = @program_files_x86.join("Microsoft Visual Studio/Installer").normalize
-      @vswhere_exe = find_vswhere_exe
+      pp! @vswhere_path
+      if exe = find_vswhere_exe
+        Log.info &.emit("vswhere found:", @vswhere_path)
+        @vswhere_exe = path
+      else
+         raise "vswhere executable not found"
+      end
     end
 
     def find_vswhere_exe
@@ -37,8 +45,6 @@ module MsvcEnv
         puts "Found vswhere in PATH at: #{exe}"
         return Path.new(exe)
       end
-      
-      puts "vswhere.exe not found"
       nil
     end
 
@@ -84,8 +90,8 @@ module MsvcEnv
       cmd_error_string = io_error.to_s
 
       # Print debug information
-      puts "vswhere command output: #{cmd_output_string.inspect}"
-      puts "vswhere command error: #{cmd_error_string.inspect}" unless cmd_error_string.empty?
+      Log.info &.emit "vswhere command output: ", cmd_output_string.inspect
+      Log.error &.emit  "vswhere command error: ", cmd_error_string.inspect unless cmd_error_string.empty?
 
       paths = cmd_output_string.lines.reject(&.empty?)
       
@@ -104,10 +110,10 @@ module MsvcEnv
     end
 
     def find_vcvarsall(vsversion : String? = nil) : Path
-      puts "Looking for vcvarsall.bat with vsversion: #{vsversion.inspect}"
+      Log.info "Looking for vcvarsall.bat with vsversion: #{vsversion.inspect}"
       
       vsversion_number = vs_year_to_versionnumber(vsversion)
-      puts "Converted to version number: #{vsversion_number.inspect}"
+      Log.debug "Converted to version number: #{vsversion_number.inspect}"
       
       version_pattern =
         if vsversion_number
@@ -126,7 +132,7 @@ module MsvcEnv
           "-latest"
         end
       
-      puts "Using version pattern: #{version_pattern}"
+      Log.debug { "Using version pattern: #{version_pattern}"}
 
       begin
         if vswhere_exe
