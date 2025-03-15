@@ -22,30 +22,54 @@ module MsvcEnv
         "2015" => "14.0",
         "2013" => "12.0",
       }
+      
+      # Get program files paths
       @program_files_x86 = pathbuf_from_key("ProgramFiles(x86)")
       @program_files = pathbuf_from_key("ProgramFiles")
+      
+      # Find vswhere.exe
       @vswhere_path = @program_files_x86.join("Microsoft Visual Studio/Installer").normalize
-      Log.debug { "vswhere_path: #{@vswhere_path}" }
+      Log.debug { "Looking for vswhere.exe at: #{@vswhere_path}" }
+      
       if exe = find_vswhere_exe
-        Log.info { "vswhere found: #{@vswhere_path}" }
+        Log.info { "vswhere found at: #{exe}" }
         @vswhere_exe = exe
       else
-        Log.error{ "vswhere executable not path not found"}
+        Log.error { "vswhere.exe not found - Visual Studio detection may fail" }
+        # We'll continue and try to find Visual Studio without vswhere
       end
     end
 
     def find_vswhere_exe
+      # Try the standard location first
       exe = @vswhere_path / "vswhere.exe"
-      if File.exists? exe
-        puts "Found vswhere.exe at: #{exe}"
+      if File.exists?(exe)
+        Log.info { "Found vswhere.exe at standard location: #{exe}" }
         return exe
       end
       
-      exe = Process.find_executable("vswhere")
-      if exe
-        puts "Found vswhere in PATH at: #{exe}"
-        return Path.new(exe)
+      # Try to find it in PATH
+      exe_path = Process.find_executable("vswhere")
+      if exe_path
+        Log.info { "Found vswhere in PATH at: #{exe_path}" }
+        return Path.new(exe_path)
       end
+      
+      # Try other common locations
+      alternate_locations = [
+        @program_files.join("Microsoft Visual Studio/Installer/vswhere.exe"),
+        Path.new("C:/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe"),
+        Path.new("C:/Program Files/Microsoft Visual Studio/Installer/vswhere.exe")
+      ]
+      
+      alternate_locations.each do |location|
+        if File.exists?(location)
+          Log.info { "Found vswhere.exe at alternate location: #{location}" }
+          return location
+        end
+      end
+      
+      Log.error { "vswhere.exe not found in any location" }
       nil
     end
 
@@ -72,17 +96,28 @@ module MsvcEnv
       "17.0"
     end
 
-    def find_with_vswhere(pattern : String, version_pattern : String) : Path
-      raise "vswhere not found" unless vswhere_exe
+    def find_with_vswhere(pattern : String, version_pattern : String) : Path?
+      return nil unless vswhere_exe
+      
       exe = vswhere_exe.not_nil!.to_s
+      Log.debug { "Using vswhere.exe at: #{exe}" }
       
       # Build the command arguments
       vswhere = ["/C", exe, "-products", "*"]
       
-      # Add version pattern as separate arguments if it contains spaces
-      if version_pattern.includes?(' ')
-        version_pattern.split(' ', remove_empty: true).each do |part|
-          vswhere << part
+      # Handle version pattern properly
+      if version_pattern == "-latest"
+        vswhere << "-latest"
+      elsif version_pattern.starts_with?("-version")
+        # Extract the version string and add it properly
+        if version_pattern =~ /-version\s+"([^"]+)"/
+          version_str = $1
+          vswhere << "-version" << version_str
+        else
+          # Fallback if regex doesn't match
+          version_pattern.split(' ', remove_empty: true).each do |part|
+            vswhere << part
+          end
         end
       else
         vswhere << version_pattern
@@ -108,24 +143,33 @@ module MsvcEnv
       paths = cmd_output_string.lines.reject(&.empty?)
       
       if paths.empty?
-        raise "No Visual Studio installations found by vswhere"
+        Log.warn { "No Visual Studio installations found by vswhere" }
+        return nil
       end
       
       path = paths.first
 
       if path.includes?("Visual Studio Locator") || path.includes?("Copyright (C)")
-        raise "Query to vswhere failed:\n\t#{path}"
+        Log.error { "Query to vswhere failed: #{path}" }
+        return nil
       end
 
       res = Path.new(path).join(pattern).normalize
-      res
+      
+      if File.exists?(res)
+        Log.info { "Found #{pattern} at: #{res}" }
+        return res
+      else
+        Log.warn { "Path found by vswhere doesn't exist: #{res}" }
+        return nil
+      end
     end
 
     def find_vcvarsall(vsversion : String? = nil) : Path
-      Log.info {"Looking for vcvarsall.bat with vsversion: #{vsversion.inspect}"}
+      Log.info { "Looking for vcvarsall.bat with vsversion: #{vsversion.inspect}" }
       
       vsversion_number = vs_year_to_versionnumber(vsversion)
-      Log.debug {"Converted to version number: #{vsversion_number.inspect}"}
+      Log.debug { "Converted to version number: #{vsversion_number.inspect}" }
       
       version_pattern =
         if vsversion_number
@@ -144,42 +188,68 @@ module MsvcEnv
           "-latest"
         end
       
-      Log.debug { "Using version pattern: #{version_pattern}"}
+      Log.debug { "Using version pattern: #{version_pattern}" }
 
-      begin
-        if vswhere_exe
-          puts "Trying to find with vswhere..."
-          return find_with_vswhere("VC/Auxiliary/Build/vcvarsall.bat", version_pattern)
+      # Try to find using vswhere first
+      if vswhere_exe
+        Log.info { "Trying to find with vswhere..." }
+        if path = find_with_vswhere("VC/Auxiliary/Build/vcvarsall.bat", version_pattern)
+          Log.info { "Found with vswhere: #{path}" }
+          return path
         else
-          puts "vswhere.exe not available, skipping vswhere search"
+          Log.warn { "Not found with vswhere, trying standard locations" }
         end
-      rescue ex : Exception
-        STDERR.puts "Not found with vswhere: #{ex.message}"
+      else
+        Log.warn { "vswhere.exe not available, trying standard locations" }
       end
 
+      # Try standard locations based on Visual Studio version
+      Log.info { "Searching in standard locations..." }
       vs_year_version.each do |ver, _|
         EDITIONS.each do |ed|
           path = program_files.join("Microsoft Visual Studio", ver, ed, "VC/Auxiliary/Build/vcvarsall.bat")
-          # puts "Trying standard location: #{path}"
-          if File.exists? path
-            puts "Found standard location: #{path}"
+          Log.debug { "Trying standard location: #{path}" }
+          if File.exists?(path)
+            Log.info { "Found in standard location: #{path}" }
             return path.normalize
           end
         end
       end
 
-      STDERR.puts "Not found in standard locations"
+      Log.warn { "Not found in standard locations, trying VS 2015 location" }
 
+      # Try VS 2015 location
       path = program_files_x86.join("Microsoft Visual C++ Build Tools/vcbuildtools.bat")
-
-      if File.exists? path
-        puts "Found VS 2015: #{path}"
+      if File.exists?(path)
+        Log.info { "Found VS 2015: #{path}" }
         return path.normalize
       end
 
-      STDERR.puts "Not found in VS 2015 location: #{path}"
+      Log.error { "Not found in VS 2015 location: #{path}" }
 
-      raise "Microsoft Visual Studio not found"
+      # Try additional fallback locations
+      fallback_locations = [
+        program_files.join("Microsoft Visual Studio/2022/BuildTools/VC/Auxiliary/Build/vcvarsall.bat"),
+        program_files.join("Microsoft Visual Studio/2019/BuildTools/VC/Auxiliary/Build/vcvarsall.bat"),
+        program_files.join("Microsoft Visual Studio/2017/BuildTools/VC/Auxiliary/Build/vcvarsall.bat"),
+        program_files_x86.join("Microsoft Visual Studio/2022/BuildTools/VC/Auxiliary/Build/vcvarsall.bat"),
+        program_files_x86.join("Microsoft Visual Studio/2019/BuildTools/VC/Auxiliary/Build/vcvarsall.bat"),
+        program_files_x86.join("Microsoft Visual Studio/2017/BuildTools/VC/Auxiliary/Build/vcvarsall.bat")
+      ]
+
+      Log.info { "Trying fallback locations..." }
+      fallback_locations.each do |loc|
+        Log.debug { "Checking fallback location: #{loc}" }
+        if File.exists?(loc)
+          Log.info { "Found in fallback location: #{loc}" }
+          return loc
+        end
+      end
+
+      # If we get here, we couldn't find Visual Studio
+      error_msg = "Microsoft Visual Studio not found. Please install Visual Studio with C++ development tools."
+      Log.error { error_msg }
+      raise error_msg
     end
 
     def pathbuf_from_key(key : String) : Path
