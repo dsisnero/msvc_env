@@ -14,6 +14,7 @@ module MsvcEnv
     getter vswhere_exe : Path?
 
     def initialize
+      Log.info { "initializing constants"}
       @vs_year_version = Hash{
         "2022" => "17.0",
         "2019" => "16.0",
@@ -29,7 +30,7 @@ module MsvcEnv
         Log.info { "vswhere found: #{@vswhere_path}" }
         @vswhere_exe = exe
       else
-         raise "vswhere executable not found"
+        Log.error{ "vswhere executable not path not found"}
       end
     end
 
@@ -121,10 +122,10 @@ module MsvcEnv
     end
 
     def find_vcvarsall(vsversion : String? = nil) : Path
-      Log.info "Looking for vcvarsall.bat with vsversion: #{vsversion.inspect}"
+      Log.info {"Looking for vcvarsall.bat with vsversion: #{vsversion.inspect}"}
       
       vsversion_number = vs_year_to_versionnumber(vsversion)
-      Log.debug "Converted to version number: #{vsversion_number.inspect}"
+      Log.debug {"Converted to version number: #{vsversion_number.inspect}"}
       
       version_pattern =
         if vsversion_number
@@ -182,8 +183,12 @@ module MsvcEnv
     end
 
     def pathbuf_from_key(key : String) : Path
-      v = ENV[key]
-      Path.new(v)
+       v = ENV[key]
+         Path.new(v)
+    rescue ex
+       Log.warn{ "error getting ENV[#{key}]"}
+       raise ex
+    
     end
   end
 end

@@ -3,10 +3,9 @@ require "./cli.cr"
 require "./msvc_env/constants"
 require "log"
 
-Log.setup_from_env
+Log.setup_from_env(default_level: :info)
 
 module MsvcEnv
-  Log = Log.for(self)
   VERSION = "0.1.0"
 
   # Initialize the constants
@@ -17,7 +16,7 @@ module MsvcEnv
       Log.setup(:debug)
       
       constants = Constants.new
-      puts "Successfully initialized MsvcEnv"
+      Log.info {"Successfully initialized MsvcEnv"}
     rescue ex : Exception
       STDERR.puts "Error initializing Constants: #{ex.message}"
       STDERR.puts ex.backtrace.join("\n") if ENV["DEBUG"]? == "1"
