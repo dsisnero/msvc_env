@@ -4,6 +4,7 @@ require "log"
 module MsvcEnv
   struct Constants
 
+    # Use a simple logger without metadata to avoid Hash union issues
     Log = ::Log.for(self)
     EDITIONS = ["Enterprise", "Professional", "Community", "Preview", "BuildTools"]
 
@@ -26,8 +27,8 @@ module MsvcEnv
       @vswhere_path = @program_files_x86.join("Microsoft Visual Studio/Installer").normalize
       pp! @vswhere_path
       if exe = find_vswhere_exe
-        Log.info &.emit("vswhere found:", @vswhere_path)
-        @vswhere_exe = path
+        Log.info { "vswhere found: #{@vswhere_path}" }
+        @vswhere_exe = exe
       else
          raise "vswhere executable not found"
       end
@@ -90,8 +91,8 @@ module MsvcEnv
       cmd_error_string = io_error.to_s
 
       # Print debug information
-      Log.info &.emit "vswhere command output: ", cmd_output_string.inspect
-      Log.error &.emit  "vswhere command error: ", cmd_error_string.inspect unless cmd_error_string.empty?
+      Log.info { "vswhere command output: #{cmd_output_string.inspect}" }
+      Log.error { "vswhere command error: #{cmd_error_string.inspect}" } unless cmd_error_string.empty?
 
       paths = cmd_output_string.lines.reject(&.empty?)
       
@@ -110,10 +111,10 @@ module MsvcEnv
     end
 
     def find_vcvarsall(vsversion : String? = nil) : Path
-      Log.info "Looking for vcvarsall.bat with vsversion: #{vsversion.inspect}"
+      Log.info { "Looking for vcvarsall.bat with vsversion: #{vsversion.inspect}" }
       
       vsversion_number = vs_year_to_versionnumber(vsversion)
-      Log.debug "Converted to version number: #{vsversion_number.inspect}"
+      Log.debug { "Converted to version number: #{vsversion_number.inspect}" }
       
       version_pattern =
         if vsversion_number
