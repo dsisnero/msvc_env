@@ -1,22 +1,24 @@
 # TODO: Write documentation for `MsvcEnv`
 require "./cli.cr"
 require "./msvc_env/constants"
+require "log"
+
+Log.setup_from_env
+
+
 
 module MsvcEnv
+  Log = Log.for(self)
   VERSION = "0.1.0"
 
   # Initialize the constants
   def self.init
+    Log.info{"running init"}
     begin
-      # Configure logging
-      Log.setup_from_env
-      
-      # Initialize constants
       constants = Constants.new
       puts "Successfully initialized MsvcEnv"
-    rescue ex : Exception
+    rescue ex
       STDERR.puts "Error initializing Constants: #{ex.message}"
-      STDERR.puts ex.backtrace.join("\n") if ENV["DEBUG"]? == "1"
       exit(1)
     end
   end
