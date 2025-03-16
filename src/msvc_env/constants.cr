@@ -38,6 +38,7 @@ module MsvcEnv
         Log.error { "vswhere.exe not found - Visual Studio detection may fail" }
         # We'll continue and try to find Visual Studio without vswhere
       end
+    
     end
 
     def find_vswhere_exe
