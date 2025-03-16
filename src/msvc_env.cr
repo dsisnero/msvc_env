@@ -32,8 +32,9 @@ module MsvcEnv
       Log.debug { "  ProgramFiles(x86): #{ENV["ProgramFiles(x86)"]? || "Unknown"}" }
       
       # Initialize constants
-      @@constants = Constants.new
-      @@constants.update_env_path
+      constants = Constants.new
+      constants.update_env_path
+      @@constants = constants
       Log.info { "Successfully initialized MsvcEnv" }
     rescue ex : Exception
       STDERR.puts "Error initializing Constants: #{ex.message}"
