@@ -11,7 +11,7 @@ module MsvcEnv
     getter vswhere_exe : Path?
 
     def initialize
-      Log.info { "initializing constants"}
+      puts "Initializing constants..."
       @vs_year_version = Hash{
         "2022" => "17.0",
         "2019" => "16.0",
@@ -26,13 +26,13 @@ module MsvcEnv
       
       # Find vswhere.exe
       @vswhere_path = @program_files_x86.join("Microsoft Visual Studio/Installer").normalize
-      Log.debug { "Looking for vswhere.exe at: #{@vswhere_path}" }
+      puts "Looking for vswhere.exe at: #{@vswhere_path}"
       
       if exe = find_vswhere_exe
-        Log.info { "vswhere found at: #{exe}" }
+        puts "vswhere found at: #{exe}"
         @vswhere_exe = exe
       else
-        Log.error { "vswhere.exe not found - Visual Studio detection may fail" }
+        puts "ERROR: vswhere.exe not found - Visual Studio detection may fail"
         # We'll continue and try to find Visual Studio without vswhere
       end
     
