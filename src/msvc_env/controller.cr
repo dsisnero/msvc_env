@@ -60,6 +60,7 @@ module MsvcEnv
     def run(opt : Options)
       program = opt.program
       args = opt.args
+      puts "prog #{program} args: #{args}"
       raise "opt.program needed" unless program
       vcvars_cmd = setup_msvcdev_cmd(opt)
       old_env, new_env = run_vc_batch_file(vcvars_cmd)
@@ -73,6 +74,24 @@ module MsvcEnv
       raise ex
     end
 
+
+    def open(opt : Options)
+      program = opt.program
+      args = opt.args
+      raise "opt.program needed" unless program
+      vcvars_cmd = setup_msvcdev_cmd(opt)
+      old_env, new_env = run_vc_batch_file(vcvars_cmd)
+      update_env(old_env, new_env)
+      args = Process.parse_arguments(args.not_nil!) if args
+      puts "Running #{program} with #{args}"
+      Process.run(command: program, args: args, output: STDOUT)
+    rescue ex : Exception
+      puts ex.message
+      puts ex.backtrace
+      raise ex
+    end
+
+    
     def run_vc_batch_file(cmd)
       # Run the VC++ configuration batch file and capture the environment output.
       io_output = IO::Memory.new
