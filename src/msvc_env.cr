@@ -3,20 +3,12 @@ require "./cli.cr"
 require "./msvc_env/constants"
 require "./msvc_env/controller"
 require "./debug_helper"
-require "log"
-
-# Setup logging with more detailed output
-Log.setup(:debug) if ENV["DEBUG"]? == "1" || ENV["LOG_LEVEL"]? == "DEBUG"
-Log.setup(:info) if ENV["LOG_LEVEL"]? == "INFO"
-Log.setup(:error) if !ENV["DEBUG"]? && ENV["LOG_LEVEL"]?.nil?
-
-
 
 module MsvcEnv
   VERSION = "0.1.0"
   
   # Global constants instance that can be reused
-  class_property constants : Constants? = nil
+  @@constants : Constants? = nil
 
   # Initialize the constants
   def self.init
@@ -55,12 +47,17 @@ module MsvcEnv
     end
   end
   
+  # Get the constants instance
+  def self.constants
+    @@constants
+  end
+  
   # Run diagnostics if in debug mode
   if ENV["DEBUG"]? == "1"
     puts "Running in DEBUG mode"
     DebugHelper.run_diagnostics
   end
-  
-  # Run the initialization when the module is loaded
-  init
 end
+
+# Run the initialization when the module is loaded
+MsvcEnv.init

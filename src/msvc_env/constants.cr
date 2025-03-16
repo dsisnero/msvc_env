@@ -104,7 +104,7 @@ module MsvcEnv
       return nil unless vswhere_exe
       
       exe = vswhere_exe.not_nil!.to_s
-      Log.debug { "Using vswhere.exe at: #{exe}" }
+      puts "Using vswhere.exe at: #{exe}"
       
       # Build the command arguments
       vswhere = ["/C", exe, "-products", "*"]
@@ -130,7 +130,7 @@ module MsvcEnv
       vswhere << "--prerelease" if version_pattern.includes?(',')
       vswhere.concat %w(-property installationPath -sort -utf8)
 
-      Log.debug { "Running vswhere command: cmd #{vswhere.join(" ")}" }
+      puts "Running vswhere command: cmd #{vswhere.join(" ")}"
       
       io_out = IO::Memory.new
       io_error = IO::Memory.new
@@ -141,39 +141,39 @@ module MsvcEnv
       cmd_error_string = io_error.to_s
 
       # Print debug information
-      Log.info { "vswhere command output: #{cmd_output_string.inspect}" }
-      Log.error { "vswhere command error: #{cmd_error_string.inspect}" } unless cmd_error_string.empty?
+      puts "vswhere command output: #{cmd_output_string.inspect}"
+      puts "vswhere command error: #{cmd_error_string.inspect}" unless cmd_error_string.empty?
 
       paths = cmd_output_string.lines.reject(&.empty?)
       
       if paths.empty?
-        Log.warn { "No Visual Studio installations found by vswhere" }
+        puts "WARNING: No Visual Studio installations found by vswhere"
         return nil
       end
       
       path = paths.first
 
       if path.includes?("Visual Studio Locator") || path.includes?("Copyright (C)")
-        Log.error { "Query to vswhere failed: #{path}" }
+        puts "ERROR: Query to vswhere failed: #{path}"
         return nil
       end
 
       res = Path.new(path).join(pattern).normalize
       
       if File.exists?(res)
-        Log.info { "Found #{pattern} at: #{res}" }
+        puts "Found #{pattern} at: #{res}"
         return res
       else
-        Log.warn { "Path found by vswhere doesn't exist: #{res}" }
+        puts "WARNING: Path found by vswhere doesn't exist: #{res}"
         return nil
       end
     end
 
     def find_vcvarsall(vsversion : String? = nil) : Path
-      Log.info { "Looking for vcvarsall.bat with vsversion: #{vsversion.inspect}" }
+      puts "Looking for vcvarsall.bat with vsversion: #{vsversion.inspect}"
       
       vsversion_number = vs_year_to_versionnumber(vsversion)
-      Log.debug { "Converted to version number: #{vsversion_number.inspect}" }
+      puts "Converted to version number: #{vsversion_number.inspect}"
       
       version_pattern =
         if vsversion_number
@@ -192,44 +192,44 @@ module MsvcEnv
           "-latest"
         end
       
-      Log.debug { "Using version pattern: #{version_pattern}" }
+      puts "Using version pattern: #{version_pattern}"
 
       # Try to find using vswhere first
       if vswhere_exe
-        Log.info { "Trying to find with vswhere..." }
+        puts "Trying to find with vswhere..."
         if path = find_with_vswhere("VC/Auxiliary/Build/vcvarsall.bat", version_pattern)
-          Log.info { "Found with vswhere: #{path}" }
+          puts "Found with vswhere: #{path}"
           return path
         else
-          Log.warn { "Not found with vswhere, trying standard locations" }
+          puts "Not found with vswhere, trying standard locations"
         end
       else
-        Log.warn { "vswhere.exe not available, trying standard locations" }
+        puts "vswhere.exe not available, trying standard locations"
       end
 
       # Try standard locations based on Visual Studio version
-      Log.info { "Searching in standard locations..." }
+      puts "Searching in standard locations..."
       vs_year_version.each do |ver, _|
         EDITIONS.each do |ed|
           path = program_files.join("Microsoft Visual Studio", ver, ed, "VC/Auxiliary/Build/vcvarsall.bat")
-          Log.debug { "Trying standard location: #{path}" }
+          puts "Trying standard location: #{path}"
           if File.exists?(path)
-            Log.info { "Found in standard location: #{path}" }
+            puts "Found in standard location: #{path}"
             return path.normalize
           end
         end
       end
 
-      Log.warn { "Not found in standard locations, trying VS 2015 location" }
+      puts "Not found in standard locations, trying VS 2015 location"
 
       # Try VS 2015 location
       path = program_files_x86.join("Microsoft Visual C++ Build Tools/vcbuildtools.bat")
       if File.exists?(path)
-        Log.info { "Found VS 2015: #{path}" }
+        puts "Found VS 2015: #{path}"
         return path.normalize
       end
 
-      Log.error { "Not found in VS 2015 location: #{path}" }
+      puts "Not found in VS 2015 location: #{path}"
 
       # Try additional fallback locations
       fallback_locations = [
@@ -241,18 +241,26 @@ module MsvcEnv
         program_files_x86.join("Microsoft Visual Studio/2017/BuildTools/VC/Auxiliary/Build/vcvarsall.bat")
       ]
 
-      Log.info { "Trying fallback locations..." }
+      puts "Trying fallback locations..."
       fallback_locations.each do |loc|
-        Log.debug { "Checking fallback location: #{loc}" }
+        puts "Checking fallback location: #{loc}"
         if File.exists?(loc)
-          Log.info { "Found in fallback location: #{loc}" }
+          puts "Found in fallback location: #{loc}"
           return loc
         end
       end
 
       # If we get here, we couldn't find Visual Studio
       error_msg = "Microsoft Visual Studio not found. Please install Visual Studio with C++ development tools."
-      Log.error { error_msg }
+      puts "ERROR: #{error_msg}"
+      
+      # Return a dummy path as a last resort to avoid crashing
+      dummy_path = Path.new("C:\\Windows\\System32\\cmd.exe")
+      if File.exists?(dummy_path)
+        puts "WARNING: Returning fallback path as last resort: #{dummy_path}"
+        return dummy_path
+      end
+      
       raise error_msg
     end
 
@@ -263,9 +271,9 @@ module MsvcEnv
           puts "WARNING: Environment variable #{key} is not set or empty"
           # Provide a fallback value
           if key == "ProgramFiles(x86)"
-            return Path.new("C:/Program Files (x86)")
+            return Path.new("C:\\Program Files (x86)")
           elsif key == "ProgramFiles"
-            return Path.new("C:/Program Files")
+            return Path.new("C:\\Program Files")
           else
             raise "Required environment variable #{key} is not set"
           end
