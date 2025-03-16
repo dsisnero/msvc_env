@@ -42,17 +42,19 @@ module MsvcEnv
     end
 
     def find_vswhere_exe
+      puts "Searching for vswhere.exe..."
+      
       # Try the standard location first
       exe = @vswhere_path / "vswhere.exe"
       if File.exists?(exe)
-        Log.info { "Found vswhere.exe at standard location: #{exe}" }
+        puts "Found vswhere.exe at standard location: #{exe}"
         return exe
       end
       
       # Try to find it in PATH
       exe_path = Process.find_executable("vswhere")
       if exe_path
-        Log.info { "Found vswhere in PATH at: #{exe_path}" }
+        puts "Found vswhere in PATH at: #{exe_path}"
         return Path.new(exe_path)
       end
       
@@ -64,13 +66,14 @@ module MsvcEnv
       ]
       
       alternate_locations.each do |location|
+        puts "Checking location: #{location}"
         if File.exists?(location)
-          Log.info { "Found vswhere.exe at alternate location: #{location}" }
+          puts "Found vswhere.exe at alternate location: #{location}"
           return location
         end
       end
       
-      Log.error { "vswhere.exe not found in any location" }
+      puts "WARNING: vswhere.exe not found in any location"
       nil
     end
 
@@ -254,12 +257,24 @@ module MsvcEnv
     end
 
     def pathbuf_from_key(key : String) : Path
-       v = ENV[key]
-         Path.new(v)
-    rescue ex
-       Log.warn{ "error getting ENV[#{key}]"}
-       raise ex
-    
+      begin
+        v = ENV[key]?
+        if v.nil? || v.empty?
+          puts "WARNING: Environment variable #{key} is not set or empty"
+          # Provide a fallback value
+          if key == "ProgramFiles(x86)"
+            return Path.new("C:/Program Files (x86)")
+          elsif key == "ProgramFiles"
+            return Path.new("C:/Program Files")
+          else
+            raise "Required environment variable #{key} is not set"
+          end
+        end
+        Path.new(v)
+      rescue ex
+        puts "ERROR getting ENV[#{key}]: #{ex.message}"
+        raise ex
+      end
     end
   end
 end
