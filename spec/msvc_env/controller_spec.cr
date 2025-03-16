@@ -25,8 +25,10 @@ require "../spec_helper"
 
   describe MsvcEnv::Controller do
     it "gets environment hashes" do
+      # Save the current environment
+      old_env = ENV.to_h { |k, v| {k, v} }
+      
       begin
-        old_env = ENV.to_h { |k, v| {k, v} }
         opts = MsvcEnv::Options.new
         opts.program = "cmd"
         opts.args = "/c echo Test"
@@ -38,8 +40,10 @@ require "../spec_helper"
       ensure
         # Restore environment
         ENV.clear
-        old_env.each do |k, v|
-          ENV[k] = v
+        if old_env
+          old_env.each do |k, v|
+            ENV[k] = v
+          end
         end
       end
     end
