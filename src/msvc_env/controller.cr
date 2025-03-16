@@ -98,40 +98,56 @@ module MsvcEnv
       io_error = IO::Memory.new
       vsvars_cmd = "cmd /C set && cls && #{cmd} && cls && set"
 
-      temporary_batch_file = File.tempfile(suffix: ".bat") do |f|
-        f.puts vsvars_cmd
+      begin
+        # Create a temporary batch file with a unique name
+        temp_dir = ENV["TEMP"]? || "."
+        timestamp = Time.local.to_unix
+        batch_path = File.join(temp_dir, "msvc_env_#{timestamp}.bat")
+        
+        File.write(batch_path, vsvars_cmd)
+
+        puts "Running command via batch file: #{batch_path}"
+        status = Process.run(command: "cmd", args: ["/C", batch_path], output: io_output, error: io_error)
+        cmd_output = io_output.to_s
+        error_output = io_error.to_s
+
+        unless status.success?
+          puts "Error executing batch file:\n#{error_output}"
+        end
+
+        # Split the output into parts.
+        cmd_output_parts = cmd_output.split("\f").to_a
+
+        # Ensure there are three parts.
+        if cmd_output_parts.size != 3
+          puts "Warning: Unexpected output format. Got #{cmd_output_parts.size} parts instead of 3."
+          # Try to recover by using the whole output as new environment
+          old_environment = {} of String => String
+          new_environment = parse_environment_vars(cmd_output)
+          return {old_environment, new_environment}
+        end
+
+        # Convert the parts to UTF-8 strings.
+        old_environment = parse_environment_vars(cmd_output_parts[0])
+        vcvars_output = cmd_output_parts[1]
+        new_environment = parse_environment_vars(cmd_output_parts[2])
+
+        # Check for error messages in vcvars_output.
+        error_messages = vcvars_output.lines.select { |line| line.includes?("[ERROR") && !line.includes?("Error in script usage. the correct usage is:") }
+        unless error_messages.empty?
+          puts "Warning: Detected errors in vcvars output:\n#{error_messages.join("\n")}"
+        end
+
+        {old_environment, new_environment}
+      rescue ex
+        puts "Error in run_vc_batch_file: #{ex.message}"
+        puts ex.backtrace.join("\n") if ENV["DEBUG"]? == "1"
+        # Return empty environments as fallback
+        { {} of String => String, {} of String => String }
+      ensure
+        # Clean up the temporary file
+        File.delete(batch_path) if batch_path && File.exists?(batch_path)
       end
-
-      puts "running cmd\n#{vsvars_cmd}"
-      status = Process.run(command: "cmd", args: ["/C", temporary_batch_file.path], output: io_output, error: io_error)
-      cmd_output = io_output.to_s
-      error_output = io_error.to_s
-
-      unless status.success?
-        puts "Error #################\n\n"
-        puts error_output
-      end
-
-      # Split the output into parts.
-      cmd_output_parts = cmd_output.split("\f").to_a
-
-      # Ensure there are three parts.
-      if cmd_output_parts.size != 3
-        raise "Couldn't split the output into pages: #{cmd_output_parts[2]}"
-      end
-
-      # Convert the parts to UTF-8 strings.
-      old_environment = parse_environment_vars(cmd_output_parts[0])
-      vcvars_output = cmd_output_parts[1]
-      new_environment = parse_environment_vars(cmd_output_parts[2])
-
-      # Check for error messages in vcvars_output.
-      error_messages = vcvars_output.lines.select { |line| line.includes?("[ERROR") && !line.includes?("Error in script usage. the correct usage is:") }
-      unless error_messages.empty?
-        raise "Invalid parameters\n#{error_messages.join("\n")}"
-      end
-
-      {old_environment, new_environment}
     end
 
     def filter_path_value(path : String) : String

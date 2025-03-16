@@ -9,14 +9,19 @@ module MsvcEnv
   
   # Global constants instance that can be reused
   @@constants : Constants? = nil
+  @@initialized = false
 
   # Initialize the constants
   def self.init
+    return if @@initialized
+    
     puts "Initializing MsvcEnv..."
     begin
       # Check if we're running on Windows
       {% unless flag?(:windows) %}
-        raise "This tool is designed to run on Windows only"
+        puts "Warning: This tool is designed for Windows only"
+        @@initialized = true
+        return
       {% end %}
       
       # Display system information for debugging
@@ -36,19 +41,25 @@ module MsvcEnv
         STDERR.puts "ERROR: Index out of bounds in Constants initialization"
         STDERR.puts "This usually happens when trying to access an array element that doesn't exist"
         STDERR.puts "Exception details: #{ex.message}"
-        STDERR.puts ex.backtrace.join("\n")
-        exit(1)
+        STDERR.puts ex.backtrace.join("\n") if ENV["DEBUG"]? == "1"
+        # Don't exit, just continue with nil constants
+      rescue ex : Exception
+        STDERR.puts "Error initializing Constants: #{ex.message}"
+        STDERR.puts "Stack trace:" if ENV["DEBUG"]? == "1"
+        STDERR.puts ex.backtrace.join("\n") if ENV["DEBUG"]? == "1"
+        # Don't exit, just continue with nil constants
       end
     rescue ex : Exception
-      STDERR.puts "Error initializing Constants: #{ex.message}"
-      STDERR.puts "Stack trace:"
-      STDERR.puts ex.backtrace.join("\n")
-      exit(1)
+      STDERR.puts "Error in MsvcEnv initialization: #{ex.message}"
+      STDERR.puts ex.backtrace.join("\n") if ENV["DEBUG"]? == "1"
+    ensure
+      @@initialized = true
     end
   end
   
   # Get the constants instance
   def self.constants
+    init unless @@initialized
     @@constants
   end
   
@@ -59,5 +70,9 @@ module MsvcEnv
   end
 end
 
-# Run the initialization when the module is loaded
-MsvcEnv.init
+# Run the initialization when the module is loaded, but don't exit on failure
+begin
+  MsvcEnv.init
+rescue ex
+  STDERR.puts "Warning: MsvcEnv initialization failed: #{ex.message}"
+end

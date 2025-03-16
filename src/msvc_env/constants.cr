@@ -1,10 +1,7 @@
 require "set"
 require "hash"
-require "log"
 module MsvcEnv
   struct Constants
-
-    Log = ::Log.for(self)
     EDITIONS = ["Enterprise", "Professional", "Community", "Preview", "BuildTools"]
 
     property program_files_x86 : Path
