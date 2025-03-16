@@ -5,7 +5,9 @@ require "./msvc_env/controller"
 require "log"
 
 # Setup logging with more detailed output
-Log.setup_from_env(default_level: ENV["DEBUG"]? == "1" ? :debug : :info)
+Log.setup_from_env(default_level: :error)
+
+
 
 module MsvcEnv
   VERSION = "0.1.0"
@@ -31,6 +33,7 @@ module MsvcEnv
       
       # Initialize constants
       @@constants = Constants.new
+      @@constants.update_env_path
       Log.info { "Successfully initialized MsvcEnv" }
     rescue ex : Exception
       STDERR.puts "Error initializing Constants: #{ex.message}"
