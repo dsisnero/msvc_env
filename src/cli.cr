@@ -37,13 +37,8 @@ module MsvcEnv
     end
 
     parser.unknown_args do |args|
-      if args.size == 1
-        opt.program = args.first
-      else
-        puts "Only one PROGRAM allowed\n"
-        puts parser
-        exit
-      end
+        opt.program = args.shift
+        
     end
 
     parser.invalid_option do |option|
