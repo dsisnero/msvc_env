@@ -27,7 +27,7 @@ require "../spec_helper"
     it "gets environment hashes" do
       # Save the current environment
       old_env = ENV.to_h { |k, v| {k, v} }
-      
+
       begin
         opts = MsvcEnv::Options.new
         opts.program = "cmd"

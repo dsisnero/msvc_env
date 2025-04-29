@@ -19,9 +19,9 @@ module DebugHelper
     puts "=== Visual Studio Check ==="
     vs_locations = [
       "C:/Program Files/Microsoft Visual Studio",
-      "C:/Program Files (x86)/Microsoft Visual Studio"
+      "C:/Program Files (x86)/Microsoft Visual Studio",
     ]
-    
+
     found = false
     vs_locations.each do |loc|
       if Dir.exists?(loc)
@@ -37,7 +37,7 @@ module DebugHelper
         end
       end
     end
-    
+
     unless found
       puts "No Visual Studio installation directories found"
     end
@@ -49,9 +49,9 @@ module DebugHelper
     puts "=== vswhere.exe Check ==="
     vswhere_locations = [
       "C:/Program Files/Microsoft Visual Studio/Installer/vswhere.exe",
-      "C:/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe"
+      "C:/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe",
     ]
-    
+
     found = false
     vswhere_locations.each do |loc|
       if File.exists?(loc)
@@ -59,13 +59,13 @@ module DebugHelper
         found = true
       end
     end
-    
+
     # Check in PATH
     if exe_path = Process.find_executable("vswhere")
       puts "Found vswhere in PATH at: #{exe_path}"
       found = true
     end
-    
+
     unless found
       puts "vswhere.exe not found in any standard location"
     end

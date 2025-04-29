@@ -1,11 +1,13 @@
 require "./options"
 require "./constants"
 require "../with_env"
+require "log"
 
 module MsvcEnv
   class Controller
+    Log                 = ::Log.for self
     include WithEnv
-    YEARS               = ["2022", "2019", "2017", "2015"]
+    YEARS = ["2022", "2019", "2017", "2015"]
     PATH_LIKE_VARIABLES = ["PATH", "INCLUDE", "LIB", "LIBPATH"]
 
     # Define a helper method to split environment variable strings into a dictionary.
@@ -20,7 +22,7 @@ module MsvcEnv
     end
 
     # Define a method to set up the MSVC Developer Command Prompt.
-    def setup_msvcdev_cmd(opt : Options?)
+    def setup_msvcdev_cmd(opt : Options? = nil)
       # Constants related to the MSVC setup.
       constants = Constants.new
 
@@ -74,24 +76,17 @@ module MsvcEnv
       raise ex
     end
 
-
-    def open(opt : Options)
-      program = opt.program
-      args = opt.args
-      raise "opt.program needed" unless program
-      vcvars_cmd = setup_msvcdev_cmd(opt)
+    def open
+      Log.debug { "Calling open in Controller" }
+      vcvars_cmd = setup_msvcdev_cmd()
       old_env, new_env = run_vc_batch_file(vcvars_cmd)
       update_env(old_env, new_env)
-      args = Process.parse_arguments(args.not_nil!) if args
-      puts "Running #{program} with #{args}"
-      Process.run(command: program, args: args, output: STDOUT)
     rescue ex : Exception
       puts ex.message
       puts ex.backtrace
       raise ex
     end
 
-    
     def run_vc_batch_file(cmd)
       # Run the VC++ configuration batch file and capture the environment output.
       io_output = IO::Memory.new
@@ -103,7 +98,7 @@ module MsvcEnv
         temp_dir = ENV["TEMP"]? || "."
         timestamp = Time.local.to_unix
         batch_path = File.join(temp_dir, "msvc_env_#{timestamp}.bat")
-        
+
         File.write(batch_path, vsvars_cmd)
 
         puts "Running command via batch file: #{batch_path}"

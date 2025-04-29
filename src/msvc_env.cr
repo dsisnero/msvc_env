@@ -6,7 +6,7 @@ require "./debug_helper"
 
 module MsvcEnv
   VERSION = "0.1.0"
-  
+
   # Global constants instance that can be reused
   @@constants : Constants? = nil
   @@initialized = false
@@ -14,7 +14,7 @@ module MsvcEnv
   # Initialize the constants
   def self.init
     return if @@initialized
-    
+
     puts "Initializing MsvcEnv..."
     begin
       # Check if we're running on Windows
@@ -23,14 +23,14 @@ module MsvcEnv
         @@initialized = true
         return
       {% end %}
-      
+
       # Display system information for debugging
       puts "System information:"
       puts "  OS: #{ENV["OS"]? || "Unknown"}"
       puts "  PROCESSOR_ARCHITECTURE: #{ENV["PROCESSOR_ARCHITECTURE"]? || "Unknown"}"
       puts "  ProgramFiles: #{ENV["ProgramFiles"]? || "Unknown"}"
       puts "  ProgramFiles(x86): #{ENV["ProgramFiles(x86)"]? || "Unknown"}"
-      
+
       # Initialize constants with explicit error handling
       begin
         constants = Constants.new
@@ -56,13 +56,13 @@ module MsvcEnv
       @@initialized = true
     end
   end
-  
+
   # Get the constants instance
   def self.constants
     init unless @@initialized
     @@constants
   end
-  
+
   # Run diagnostics if in debug mode
   if ENV["DEBUG"]? == "1"
     puts "Running in DEBUG mode"
